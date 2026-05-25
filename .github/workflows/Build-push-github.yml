@@ -9,7 +9,7 @@ permissions:
   contents: write
 env:
   Docker_hub: https://hub.docker.com/repositories/divyamd450
-  AWS_REGION: "us-east-1" # Replace with your actual region
+  AWS_REGION: "ap-south-1" # Replace with your actual region
   ECR_REPOSITORY: "your-ecr-repo-name" # Replace with your actual ECR repo name
 
 jobs:
