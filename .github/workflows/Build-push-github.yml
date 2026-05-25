@@ -58,26 +58,26 @@ jobs:
       #   id: login-ecr
       #   uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Image tags
-        id: vars
-        run: |
-          SHA_TAG=sha_${GITHUB_SHA:0:7}
-          IMAGE_BASE="${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}"
-          echo "IMAGE_BASE=$IMAGE_BASE" >> $GITHUB_ENV
-          echo "SHA_TAG=$SHA_TAG" >> $GITHUB_ENV
+      # - name: Image tags
+      #   id: vars
+      #   run: |
+      #     SHA_TAG=sha_${GITHUB_SHA:0:7}
+      #     IMAGE_BASE="${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}"
+      #     echo "IMAGE_BASE=$IMAGE_BASE" >> $GITHUB_ENV
+      #     echo "SHA_TAG=$SHA_TAG" >> $GITHUB_ENV
 
-      - name: build and push iamge
-        run: |
-          IMAGE_URI="$IMAGE_BASE:$SHA_TAG"
-          echo "building docker image with $SHA_TAG"
-          docker build -t $IMAGE_URI .
-          docker push $IMAGE_URI
+      # - name: build and push iamge
+      #   run: |
+      #     IMAGE_URI="$IMAGE_BASE:$SHA_TAG"
+      #     echo "building docker image with $SHA_TAG"
+      #     docker build -t $IMAGE_URI .
+      #     docker push $IMAGE_URI
       
-      - name: setup git to change kube manifest URI
-        run: |
-          git config --global user.name "ci-bot"
-          git config --global user.email "ci-bot@example.com"
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@://github.com{{ github.repository }}.git
+      # - name: setup git to change kube manifest URI
+      #   run: |
+      #     git config --global user.name "ci-bot"
+      #     git config --global user.email "ci-bot@example.com"
+      #     git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@://github.com{{ github.repository }}.git
   
   #Step2 Docker build and push
   container-publish:
