@@ -1,9 +1,7 @@
 name: Build and push petclinc to ECR
 on:
   push:
-    branches: [ "main" ]
-    paths:
-      - 'src/**'
+    branches: [ main ]
 permissions:
   id-token: write
   contents: write
