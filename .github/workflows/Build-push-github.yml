@@ -13,7 +13,7 @@ env:
 jobs:
   #Step1 Compile and test
   build-and-test:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     services: 
       redis:
         image: redis:latest
@@ -82,7 +82,7 @@ jobs:
   #Step2 Docker build and push
   container-publish:
     needs: build-and-test
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: checkout code
         uses: actions/checkout@v4
