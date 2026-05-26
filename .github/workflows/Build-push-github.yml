@@ -47,6 +47,10 @@ jobs:
           name: jacoco-report
           path: target/site/jacoco/
           retention-days: 1
+      - name: Build and analyze
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: ./mvnw clean verify sonar:sonar -Dsonar.host.url=http://localhost:9000 -Dsonar.token=${{ secrets.SONAR_TOKEN }}
 
       # - name: configure aws creds via OIDC
       #   uses: aws-actions/configure-aws-credentials@v4
@@ -112,3 +116,21 @@ jobs:
           context: .
           push: true
           tags: ${{ env.Docker_hub }}:${{ steps.get_tag.outputs.tag }}
+  #Step3: Deploy
+  deploy:
+    needs: container-publish
+    runs-on: self-hosted
+    strategy:
+      matrix:
+        environment: [dev-docker,dev-kube]
+    environment: ${{ matrix.environment }}
+    steps:
+      - name: verify environment
+        run : |
+         echo "running inside my WSL"
+         docker version
+         kubectl cluster-info
+
+
+        
+
