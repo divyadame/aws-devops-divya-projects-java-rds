@@ -33,6 +33,15 @@ jobs:
 
       - name: compile ans test with maven #Code Coverage with Jacoo
         run: ./mvnw clean verify -Pjacco
+      - name: Add Jacoco report to PR /Job summary
+        uses: madrapps/jacoco-report@v1.7.1
+        if : always() # Ensures report runs even if tests fail
+        with:
+          paths: ${{ github.workspace }}/target/site/jacoco/jacoco.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          min-covergae-default: 90
+          title: "JaCoCo Code Coverage Report"
+          update-comment: true
 
       - name: upload jar artifact
         uses: actions/upload-artifact@v4
@@ -47,11 +56,24 @@ jobs:
           name: jacoco-report
           path: target/site/jacoco/
           retention-days: 1
-      - name: Build and analyze
+      - name: Build,Test and Sonar analyze
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: ./mvnw clean verify sonar:sonar -Dsonar.host.url=http://localhost:9000 -Dsonar.token=${{ secrets.SONAR_TOKEN }}
-
+        run: ./mvnw clean verify sonar:sonar \
+         -Dsonar.host.url=http://localhost:9000 \
+         -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
+         -Dsonar.projectKey=petclinic_local \
+         -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+         -Dsonar.scanner.createReportTask=true # Forces creation of the local metadata file
+      - name: Sonarqube qulity gate check
+        id: sonarqube-quality-gate
+        uses: sonarsource/sonarqube-quality-gate-action@v1.1.0
+        with:
+          scanMetadataReportFile: target/sonar/report-task.txt
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: http://127.0.0.1:9000
+          SONAR_ProjectKey: petclinic_local
       # - name: configure aws creds via OIDC
       #   uses: aws-actions/configure-aws-credentials@v4
       #   with:
