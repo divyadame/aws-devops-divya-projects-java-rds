@@ -60,12 +60,8 @@ jobs:
       - name: Build,Test and Sonar analyze
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: ./mvnw clean verify sonar:sonar \
-         -Dsonar.host.url=http://localhost:9000 \
-         -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
-         -Dsonar.projectKey=petclinic_local \
-         -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
-         -Dsonar.scanner.createReportTask=true # Forces creation of the local metadata file
+        run: ./mvnw clean verify sonar:sonar -Dsonar.host.url=http://localhost:9000 -Dsonar.token=${{ secrets.SONAR_TOKEN }} -Dsonar.projectKey=petclinic_local -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml -Dsonar.scanner.createReportTask=true 
+         # Forces creation of the local metadata file
       - name: Sonarqube qulity gate check
         id: sonarqube-quality-gate
         uses: sonarsource/sonarqube-quality-gate-action@v1.1.0
