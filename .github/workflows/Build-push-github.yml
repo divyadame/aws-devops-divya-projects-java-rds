@@ -107,6 +107,8 @@ jobs:
     needs: build-and-test
     runs-on: self-hosted
     timeout-minutes: 15
+    outputs:
+      full_image_uri: ${{ steps.get_tag.outputs.uri }}
     steps:
       - name: checkout code
         uses: actions/checkout@v4
@@ -120,7 +122,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_HUB_LOGIN }}
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
-      - name: determine tag
+      - name: determine tag and construct URI
         id: get_tag
         run: |
           if [ "${{ github.ref_name }}" = "master" ]; then
@@ -130,12 +132,15 @@ jobs:
           else
             echo "tag=${{ github.ref_name }}-${{ github.sha }}" >> $GITHUB_OUTPUT
           fi
+          # build the image URI and pass it github actions memory
+          echo "uri=${{ env.Docker_hub }}:$tag" >> $GITHUB_OUTPUT
+          echo "tag=$TAG " >> $GITHUB_OUTPUT
       - name: Build and push Docker Image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: ${{ env.Docker_hub }}:${{ steps.get_tag.outputs.tag }}
+          tags: ${{ steps.get_tag.outputs.uri }}
   #Step3: Deploy
   deploy:
     needs: container-publish
@@ -145,13 +150,24 @@ jobs:
         environment: [dev-docker]
     environment: ${{ matrix.environment }}
     steps:
+      - name: checkout repo config
+        uses: actions/checkout@v4
+
       - name: verify environment
         env: 
           KUBECONFIG: /home/divya/.kube/config
-        run : |
+        run: |
          echo "running inside my WSL"
          docker version
          kubectl cluster-info
+      - name: Substitue Image placeholder and deploy k8s manifests
+        env:
+          image_uri: ${{ needs.container-publish.outputs.full_image_uri }}
+          KUBECONFIG: /home/divya/.kube/config
+        run: |
+         cd k8s
+         sed -i "s|IMAGE_PLACEHOLDER|$image_uri|g" 01_petclinic_fe_deployment.yml
+         kubectl apply -f .
 
 
         
