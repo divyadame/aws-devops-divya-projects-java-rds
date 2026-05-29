@@ -135,7 +135,7 @@ jobs:
           KUBECONFIG: /home/divya/.kube/config
         run: |
          cd k8s
-         sed -i "s|IMAGE_PLACEHOLDER|$image_uri|g" 01_petclinic_fe_deployment.yml
+         sed -i "s|IMAGE_PLACE_HOLDER|$image_uri|g" 01_petclinic_fe_deployment.yml
          kubectl apply -f .
 
 
