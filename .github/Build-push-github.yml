@@ -71,7 +71,38 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: http://127.0.0.1:9000
           SONAR_ProjectKey: petclinic_local
- #Docker build and push
+      # - name: configure aws creds via OIDC
+      #   uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }} # Replace with your secret or role ARN
+      #     aws-region: ${{ env.AWS_REGION }}
+
+      # - name: Login to ECR
+      #   id: login-ecr
+      #   uses: aws-actions/amazon-ecr-login@v2
+
+      # - name: Image tags
+      #   id: vars
+      #   run: |
+      #     SHA_TAG=sha_${GITHUB_SHA:0:7}
+      #     IMAGE_BASE="${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}"
+      #     echo "IMAGE_BASE=$IMAGE_BASE" >> $GITHUB_ENV
+      #     echo "SHA_TAG=$SHA_TAG" >> $GITHUB_ENV
+
+      # - name: build and push iamge
+      #   run: |
+      #     IMAGE_URI="$IMAGE_BASE:$SHA_TAG"
+      #     echo "building docker image with $SHA_TAG"
+      #     docker build -t $IMAGE_URI .
+      #     docker push $IMAGE_URI
+      
+      # - name: setup git to change kube manifest URI
+      #   run: |
+      #     git config --global user.name "ci-bot"
+      #     git config --global user.email "ci-bot@example.com"
+      #     git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@://github.com{{ github.repository }}.git
+  
+  #Step2 Docker build and push
   container-publish:
     needs: build-and-test
     runs-on: self-hosted
@@ -95,15 +126,15 @@ jobs:
         id: get_tag
         run: |
           if [ "${{ github.ref_name }}" = "master" ]; then
-           tag=dev 
+            echo "tag=dev" >> $GITHUB_OUTPUT
           elif [ "${{ github.ref_name }}" = "production" ]; then
-           tag=prod
+            echo "tag=prodlatest" >> $GITHUB_OUTPUT
           else
-           tag=${{ github.ref_name }}-${{ github.sha }}
+            echo "tag=${{ github.ref_name }}-${{ github.sha }}" >> $GITHUB_OUTPUT
           fi
           # build the image URI and pass it github actions memory
           echo "uri=${{ env.Docker_hub }}:$tag" >> $GITHUB_OUTPUT
-          echo "tag=$tag" >> $GITHUB_OUTPUT
+          echo "tag=$TAG " >> $GITHUB_OUTPUT
       - name: Build and push Docker Image
         uses: docker/build-push-action@v5
         with:
