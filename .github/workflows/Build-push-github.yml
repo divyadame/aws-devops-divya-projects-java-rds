@@ -74,7 +74,7 @@ jobs:
            java -jar sonar-cnes-report.jar -o reports -p "$SONAR_PROJECT_KEY" -h "$SONAR_HOST_URL" -t "$SONAR_TOKEN"
            ls -l reports  
 
-build-and-publish:    
+ build-and-publish:    
   runs-on: self-hosted
   timeout-minutes: 15
   outputs:
