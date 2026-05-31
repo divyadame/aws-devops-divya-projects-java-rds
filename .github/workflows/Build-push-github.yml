@@ -6,10 +6,10 @@ on:
       - production
       - master  
       - releases/v*.
-    tags:
-      - 'v*.*.*'
-  pull_request:
-    types: [opened, synchronize, reopened]
+  #   tags:
+  #     - 'v*.*.*'
+  # pull_request:
+  #   types: [opened, synchronize, reopened]
 env:
   Docker_hub: divyamd450/petclinic
   AWS_REGION: "ap-south-1" # Replace with your actual region
