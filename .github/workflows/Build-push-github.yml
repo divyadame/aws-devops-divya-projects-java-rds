@@ -83,7 +83,7 @@ jobs:
   build-and-publish:    
     needs: build-and-test 
     runs-on: self-hosted
-    timeout-minutes: 15
+    timeout-minutes: 30
     outputs:
       full_image_uri: ${{ steps.get_tag.outputs.uri }}
     steps:
@@ -131,6 +131,7 @@ jobs:
           exit-code: '0' 
           vuln-type: 'os,library'
           severity: 'CRITICAL'
+          timeout: '25m'
 
   # Step 3: Deploy to Kubernetes
   deploy:
