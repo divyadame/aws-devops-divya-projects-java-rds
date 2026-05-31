@@ -1,16 +1,24 @@
 name: Build and push petclinc to ECR
 on:
   push:
-    branches: [ main ]
-permissions:
-  id-token: write
-  contents: write
+    branches: 
+      - main
+      - production
+      - master  
+      - releases/v*.
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    types: [opened, synchronize, reopened]
 env:
   Docker_hub: divyamd450/petclinic
   AWS_REGION: "ap-south-1" # Replace with your actual region
   ECR_REPOSITORY: "your-ecr-repo-name" # Replace with your actual ECR repo name
+  SONAR_HOST_URL: "http://localhost:9000" # Replace with your SonarQube server URL
+  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  SONAR_PROJECT_KEY: "petclinic_local" # Replace with your SonarQube project key
 
-jobs:
+jobs: 
   #Step1 Compile and test
   build-and-test:
     runs-on: self-hosted
@@ -24,6 +32,8 @@ jobs:
     steps:
       - name: checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch full history for accurate SonarQube analysis
 
       - name: setup JDK 17
         uses: actions/setup-java@v4
@@ -31,37 +41,18 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
           cache: 'maven' #To cache m2 dependencies
-
-      - name: compile ans test with maven #Code Coverage with Jacoo
-        run: ./mvnw clean verify -Pjacco
-      - name: Add Jacoco report to PR /Job summary
-        uses: madrapps/jacoco-report@v1.7.1
-        if : always() # Ensures report runs even if tests fail
+      - name: cache SonarQube Scanner
+        uses: actions/cache@v4
         with:
-          paths: ${{ github.workspace }}/target/site/jacoco/jacoco.xml
-          token: ${{ secrets.GITHUB_TOKEN }}
-          min-covergae-default: 90
-          title: "JaCoCo Code Coverage Report"
-          update-comment: true
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
 
-      - name: upload jar artifact
-        uses: actions/upload-artifact@v4
-        with: 
-          name: petclinic.jar
-          path: target/*.jar
-          retention-days: 1 #Expires in a day
-
-      - name: upload jacoco Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: jacoco-report
-          path: target/site/jacoco/
-          retention-days: 1
-      - name: Build,Test and Sonar analyze
+      - name: Build,Test, scan dependencies and Sonar analyze
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: ./mvnw clean verify sonar:sonar -Dsonar.host.url=http://localhost:9000 -Dsonar.token=${{ secrets.SONAR_TOKEN }} -Dsonar.projectKey=petclinic_local -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml -Dsonar.scanner.createReportTask=true 
-         # Forces creation of the local metadata file
+        run: ./mvnw clean verify org.owasp:dependency-check-maven:check sonar:sonar -Dsonar.host.url=${{ env.SONAR_HOST_URL }} -Dsonar.token=${{ secrets.SONAR_TOKEN }} -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }} -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml -Dsonar.dependencyCheck.xmlReportPath=target/dependency-check/dependency-check-report.xml -Dsonar.scanner.createReportTask=true 
+         
       - name: Sonarqube qulity gate check
         id: sonarqube-quality-gate
         uses: sonarsource/sonarqube-quality-gate-action@v1.1.0
@@ -69,15 +60,25 @@ jobs:
           scanMetadataReportFile: target/sonar/report-task.txt
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: http://127.0.0.1:9000
-          SONAR_ProjectKey: petclinic_local
- #Docker build and push
-  container-publish:
-    needs: build-and-test
-    runs-on: self-hosted
-    timeout-minutes: 15
-    outputs:
-      full_image_uri: ${{ steps.get_tag.outputs.uri }}
+          SONAR_HOST_URL:  ${{ env.SONAR_HOST_URL }}
+          SONAR_ProjectKey: ${{ env.SONAR_PROJECT_KEY }}
+
+      - name: Generate sonar CNES report
+        if: steps.sonarqube-quality-gate.outputs.quality-gate-status == 'ERROR'
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: http://127.0.0.1:9000  
+          run: |
+           mkdir reports
+           curl -sL https://github.com -o sonar-cnes-report.jar
+           java -jar sonar-cnes-report.jar -o reports -p "$SONAR_PROJECT_KEY" -h "$SONAR_HOST_URL" -t "$SONAR_TOKEN"
+           ls -l reports  
+
+build-and-publish:    
+  runs-on: self-hosted
+  timeout-minutes: 15
+  outputs:
+    full_image_uri: ${{ steps.get_tag.outputs.uri }}
     steps:
       - name: checkout code
         uses: actions/checkout@v4
@@ -110,6 +111,14 @@ jobs:
           context: .
           push: true
           tags: ${{ steps.get_tag.outputs.uri }}
+      - name: scan image with trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.get_tag.outputs.uri }}
+          format: 'table'
+          exit-code: '0' # 1 for Fails the pipeline if severe vulnerabilities are found
+          vuln-type: 'os,library'
+          severity: 'CRITICAL'
   #Step3: Deploy
   deploy:
     needs: container-publish
@@ -136,7 +145,7 @@ jobs:
         run: |
          cd k8s
          sed -i "s|IMAGE_PLACE_HOLDER|$image_uri|g" 01_petclinic_fe_deployment.yml
-         kubectl apply -f .
+         kubectl  apply -f .
 
 
         
