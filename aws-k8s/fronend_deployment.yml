@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: petclinic
+  namespace: default
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: petclinic
+  template:
+    metadata:
+      labels:
+        app: petclinic
+    spec:
+      containers:
+      - name: petclinic-app
+        image: ${{ IMAGE_PLACE_HOLDER }}
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 8080
+        envFrom:
+        # Source 1: Pull non-sensitive properties from the ConfigMap
+        - configMapRef:
+            name: petclinic-app-config
+        # Source 2: Pull credentials from the CSI driver-generated Secret
+        - secretRef:
+            name: petclinic-app-secrets
+        # Mandatory mount for CSI driver to trigger sync
+        VolumeMounts:
+        - name: petclinic-app-secrets
+          mountPath: "/mnt/db-secrets"
+          readOnly: true
+      volumes:
+      - name: petclinic-db-secrets
+        csi:
+          driver: secrets-store.csi.x-k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: "petclinic-rds-secrets"
