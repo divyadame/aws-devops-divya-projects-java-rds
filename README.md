@@ -1,3 +1,37 @@
+This repository is a fork of the standard Spring Petclinic application, enhanced with a complete CI/CD automation pipeline.The included GitHub Actions workflow supports two deployment targets:Local Development: Automated deployment to a local Kubernetes cluster running on Docker Desktop.Cloud Production: Production-ready deployment to AWS utilizing a robust infrastructure stack: VPC, ECR, EKS, RDS, and ALB.
+
+The GitHub Actions workflow configuration file that automates the continuous integration and continuous deployment (CI/CD) pipeline for a Java-based Petclinic application.
+Here is a summary:
+Pipeline Overview
+The workflow automates code compilation, code quality scanning, Docker image building, security scanning, and Kubernetes deployment on a self-hosted runner.
+Triggers
+•	Pushes to branches: main, production, master, and releases/v*.
+Workflow Jobs
+1. Build and Test (build-and-test)
+•	Environment: Runs on a self-hosted runner with an active Redis service container.
+•	Setup: Configures JDK 17 (Temurin distribution) and caches Maven dependencies.
+•	Code Quality & Security: Runs a Maven build (./mvnw clean verify) combined with an OWASP dependency check and a SonarQube code analysis scan.
+•	Quality Gate: Checks the SonarQube Quality Gate status. If it fails, a fallback task attempts to generate a local CNES report.
+•	Artifact Storage: Uploads the compiled application .jar file to GitHub Actions storage.
+2. Build and Publish (build-and-publish)
+•	Dependency: Waits for the build-and-test job to pass.
+•	Artifact Retrieval: Downloads the .jar file generated in the previous step.
+•	Tagging Strategy: Dynamically maps target tags based on the Git branch:
+o	master branch → dev tag
+o	production branch → prod tag
+o	Other branches → [branch-name]-[commit-sha] tag
+•	Containerization: Authenticates with Docker Hub and builds/pushes the Docker image.
+•	Vulnerability Scanning: Uses Aqua Security's Trivy to scan the final Docker image for critical OS and library vulnerabilities.
+3. Deploy (deploy)
+•	Dependency: Waits for the build-and-publish job to finish.
+•	Target Environment: Configured to deploy to a local dev-docker environment running inside WSL (Windows Subsystem for Linux).
+•	Manifest Manifestation: Dynamically updates the Kubernetes deployment file (01_petclinic_fe_deployment.yml) by swapping out an IMAGE_PLACE_HOLDER string with the newly generated Docker image URI.
+•	Execution: Applies all configuration manifests inside the local /k8s directory using kubectl.
+________________________________________
+
+
+
+
 # Spring PetClinic Sample Application [![Build Status](https://github.com/spring-projects/spring-petclinic/actions/workflows/maven-build.yml/badge.svg)](https://github.com/spring-projects/spring-petclinic/actions/workflows/maven-build.yml)[![Build Status](https://github.com/spring-projects/spring-petclinic/actions/workflows/gradle-build.yml/badge.svg)](https://github.com/spring-projects/spring-petclinic/actions/workflows/gradle-build.yml)
 
 [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/spring-projects/spring-petclinic) [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new?hide_repo_select=true&ref=main&repo=7517918)
