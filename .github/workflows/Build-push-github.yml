@@ -23,7 +23,7 @@ env:
 jobs: 
   # Step 1: Compile, test, and analyze code
   build-and-test:
-    runs-on: self-hosted
+    runs-on: ubuntu
     timeout-minutes: 15
     services: 
       redis:
@@ -91,7 +91,7 @@ jobs:
   # Step 2: Build and Publish Docker Image
   build-and-publish:    
     needs: build-and-test 
-    runs-on: self-hosted
+    runs-on: ubuntu
     timeout-minutes: 30
     outputs:
       full_image_uri: ${{ steps.get_tag.outputs.uri }}
@@ -145,7 +145,7 @@ jobs:
   # Step 3: Deploy to Kubernetes
   deploy:
     needs: build-and-publish 
-    runs-on: self-hosted
+    runs-on: ubuntu
     strategy:
       matrix:
         environment: [dev-docker]
