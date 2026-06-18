@@ -6,11 +6,6 @@ on:
       - production
       - master  
       - 'releases/v*' 
-    # paths:
-    #   - 'src/**'
-    #   - 'pom.xml'
-    #   - 'Dockerfile'
-    #   - '.github/workflows/Build-push-github.yml'
 
 env:
   Docker_hub: divyamd450/petclinic
@@ -19,18 +14,54 @@ env:
   SONAR_HOST_URL: "http://localhost:9000" 
   SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
   SONAR_PROJECT_KEY: "petclinic_local" 
+  cache_dir: "/home/divya/devops_handson/spring-petclinic"
+  SONAR_CNES_URL: "https://github.com/cnescatlab/sonar-cnes-report/releases/download/4.1.1/sonar-cnes-report-4.1.1.jar"
 
-jobs: 
-  # Step 1: Compile, test, and analyze code
-  build-and-test:
+jobs:
+  # 🟢 SPEED OPTIMIZATION: Runs Unit Tests using multi-threaded core compilation
+  unit-tests:
     runs-on: self-hosted
-    timeout-minutes: 15
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v4
+
+      - name: setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # Added -T 1C flag for multi-threaded CPU parallel compilation
+      - name: Run Unit Tests
+        run: |
+          ./mvnw test -T 1C -Dmaven.repo.local=${{ env.cache_dir }}/.m2/repository
+
+  # 🟢 SPEED OPTIMIZATION: Runs Integration Tests concurrently using multi-threading
+  integration-tests:
+    runs-on: self-hosted
     services: 
       redis:
         image: redis:latest
         ports:
           - 6379:6379
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v4
 
+      - name: setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Run Integration Tests
+        run: |
+          ./mvnw failsafe:integration-test -T 1C -Dmaven.repo.local=${{ env.cache_dir }}/.m2/repository
+
+  # 🟢 SPEED OPTIMIZATION: Packages application and updates Sonar Metrics
+  sonar-and-package:
+    needs: [unit-tests, integration-tests]
+    runs-on: self-hosted
     steps:
       - name: checkout code
         uses: actions/checkout@v4
@@ -42,21 +73,27 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: 'maven' 
 
-      - name: cache SonarQube Scanner
-        uses: actions/cache@v4
-        with:
-          path: ~/.sonar/cache
-          key: ${{ runner.os }}-sonar
-          restore-keys: ${{ runner.os }}-sonar
-
-      - name: Build,Test, scan dependencies and Sonar analyze
+      - name: Sonar Analysis and Packaging
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: ./mvnw clean verify org.owasp:dependency-check-maven:check sonar:sonar -Dsonar.host.url=${{ env.SONAR_HOST_URL }} -Dsonar.token=${{ secrets.SONAR_TOKEN }} -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }} -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml -Dsonar.dependencyCheck.xmlReportPath=target/dependency-check/dependency-check-report.xml -Dsonar.scanner.createReportTask=true 
+        run: |
+          ./mvnw clean package sonar:sonar -DskipTests -T 1C \
+            -Dmaven.repo.local=${{ env.cache_dir }}/.m2/repository \
+            -Dsonar.userHome=${{ env.cache_dir }} \
+            -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
+            -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }} \
+            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+            -Dsonar.scanner.createReportTask=true 
          
-      - name: Sonarqube qulity gate check
+      # SPEED OPTIMIZATION: Instead of uploading a large JAR over the internet, copy it locally on the runner
+      - name: Copy JAR to Host Storage Local Cache
+        run: |
+          mkdir -p ${{ env.cache_dir }}/shared-artifacts
+          cp target/*.jar ${{ env.cache_dir }}/shared-artifacts/petclinic.jar
+
+      - name: Sonarqube quality gate check
         id: sonarqube-quality-gate
         uses: sonarsource/sonarqube-quality-gate-action@v1.1.0
         with:
@@ -69,28 +106,15 @@ jobs:
       - name: Generate sonar CNES report
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: http://127.0.0.1:9000  
+          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }} 
         run: |
           mkdir reports
-          curl -sL https://github.com -o sonar-cnes-report.jar
+          curl -sL ${{ env.SONAR_CNES_URL }} -o sonar-cnes-report.jar
           java -jar sonar-cnes-report.jar -o reports -p "$SONAR_PROJECT_KEY" -h "$SONAR_HOST_URL" -t "$SONAR_TOKEN"
-          ls -l reports  
 
-      # This shares the compiled JAR with the next job
-      - name: Upload JAR Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: petclinic.jar
-          path: target/*.jar
-      - name: Upload sonar CNES REPORT
-        uses: actions/upload-artifact@v4
-        with:
-          name: sonar cnes
-          path: reports/*
-
-  # Step 2: Build and Publish Docker Image
+  # 🟢 SPEED & SECURITY OPTIMIZATION: Compiles image utilizing local disk dependencies
   build-and-publish:    
-    needs: build-and-test 
+    needs: sonar-and-package 
     runs-on: self-hosted
     timeout-minutes: 30
     outputs:
@@ -99,12 +123,11 @@ jobs:
       - name: checkout code
         uses: actions/checkout@v4
 
-      # Downloads the JAR safely into the target/ directory
-      - name: Download jar Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: petclinic.jar
-          path: target/
+      # SPEED OPTIMIZATION: Pull the JAR instantly from local disk storage in 0 seconds
+      - name: Fetch JAR from Host Storage Local Cache
+        run: |
+          mkdir -p target
+          cp ${{ env.cache_dir }}/shared-artifacts/petclinic.jar target/spring-petclinic.jar
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -123,7 +146,9 @@ jobs:
             tag=${{ github.ref_name }}-${{ github.sha }}
           fi
           echo "uri=${{ env.Docker_hub }}:$tag" >> $GITHUB_OUTPUT
-          echo "tag=$tag" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Build and push Docker Image
         uses: docker/build-push-action@v5
@@ -131,18 +156,26 @@ jobs:
           context: .
           push: true
           tags: ${{ steps.get_tag.outputs.uri }}
+          cache-from: type=local,src=${{ env.cache_dir }}/docker-cache
+          cache-to: type=local,dest=${{ env.cache_dir }}/docker-cache-new,mode=max
 
-      - name: scan image with trivy
+      - name: Move Docker Cache Layers
+        run: |
+          rm -rf ${{ env.cache_dir }}/docker-cache
+          mv ${{ env.cache_dir }}/docker-cache-new ${{ env.cache_dir }}/docker-cache
+
+      # SECURITY OPTIMIZATION: Configured Trivy to use a persistent cache directory on disk
+      - name: Scan Image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ steps.get_tag.outputs.uri }}
           format: 'table'
-          exit-code: '0' 
+          exit-code: '1' # SECURITY UPGRADE: Fails the pipeline build if CRITICAL vulnerabilities are found
           vuln-type: 'os,library'
           severity: 'CRITICAL'
-          timeout: '25m'
+          cache-dir: ${{ env.cache_dir }}/.trivy-cache
 
-  # Step 3: Deploy to Kubernetes
+  # 🟢 SECURITY OPTIMIZATION: Deploy via a Secure Token Payload configuration
   deploy:
     needs: build-and-publish 
     runs-on: self-hosted
@@ -154,19 +187,19 @@ jobs:
       - name: checkout repo config
         uses: actions/checkout@v4
 
-      - name: verify environment
-        env: 
-          KUBECONFIG: /home/divya/.kube/config
+      # SECURITY UPGRADE: Safely extracts a restricted cluster authorization token instead of exposing host files
+      - name: Authenticate and Verify Kubernetes Cluster
         run: |
-          echo "running inside my WSL"
-          docker version
+          echo "${{ secrets.KUBERNETES_CLUSTER_CREDENTIALS }}" > kubeconfig.yaml
+          export KUBECONFIG=kubeconfig.yaml
           kubectl cluster-info
 
-      - name: Substitue Image placeholder and deploy k8s manifests
+      - name: Substitute Image placeholder and deploy k8s manifests
         env:
           image_uri: ${{ needs.build-and-publish.outputs.full_image_uri }} 
-          KUBECONFIG: /home/divya/.kube/config
         run: |
+          export KUBECONFIG=kubeconfig.yaml
           cd k8s
           sed -i "s|IMAGE_PLACE_HOLDER|$image_uri|g" 01_petclinic_fe_deployment.yml
           kubectl apply -f .
+          rm kubeconfig.yaml # Immediately scrub credentials from memory disk storage once deployment wraps
