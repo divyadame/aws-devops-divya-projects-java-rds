@@ -1,0 +1,23 @@
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: petclinic-db-creds
+  namespace: default
+spec:
+  refreshInterval: "1h" # Automatically pulls updates if you rotate passwords in AWS
+  secretStoreRef:
+    name: petclinic-db-creds
+    kind: SecretStore
+  target:
+    name: petclinic-db-secret # This is the name of the final secret generated inside K8s
+    creationPolicy: Owner
+  data:
+    - secretKey: db_user
+      remoteRef:
+        key: db_username # The exact name of the secret card in AWS Console
+        property: username         # The JSON key inside the AWS Secret value
+    - secretKey: db_pass
+      remoteRef:
+        key: db_password
+        property: password
+

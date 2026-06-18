@@ -67,7 +67,6 @@ jobs:
           SONAR_ProjectKey: ${{ env.SONAR_PROJECT_KEY }}
 
       - name: Generate sonar CNES report
-        if: steps.sonarqube-quality-gate.outputs.quality-gate-status == 'ERROR'
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: http://127.0.0.1:9000  
@@ -83,6 +82,11 @@ jobs:
         with:
           name: petclinic.jar
           path: target/*.jar
+      - name: Upload sonar CNES REPORT
+        uses: actions/upload-artifact@v4
+        with:
+          name: sonar cnes
+          path: reports/*
 
   # Step 2: Build and Publish Docker Image
   build-and-publish:    
