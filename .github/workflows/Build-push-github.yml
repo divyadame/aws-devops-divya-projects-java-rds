@@ -10,7 +10,7 @@ on:
       - 'src/**'
       - 'pom.xml'
       - 'Dockerfile'
-      - '.github/build-push-deploy-aws.yml'
+      - '.github/workflows/Build-push-github.yml'
 
 env:
   Docker_hub: divyamd450/petclinic
