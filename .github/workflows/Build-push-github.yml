@@ -6,11 +6,11 @@ on:
       - production
       - master  
       - 'releases/v*' 
-    paths:
-      - 'src/**'
-      - 'pom.xml'
-      - 'Dockerfile'
-      - '.github/workflows/Build-push-github.yml'
+    # paths:
+    #   - 'src/**'
+    #   - 'pom.xml'
+    #   - 'Dockerfile'
+    #   - '.github/workflows/Build-push-github.yml'
 
 env:
   Docker_hub: divyamd450/petclinic
