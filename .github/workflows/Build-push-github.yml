@@ -108,7 +108,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }} 
         run: |
-          mkdir ${{ env.cache_dir }}/reports
+          mkdir -p ${{ env.cache_dir }}/reports
           cd ${{ env.cache_dir }}/reports
           curl -sL ${{ env.SONAR_CNES_URL }} -o sonar-cnes-report.jar
           java -jar ${{ env.cache_dir }}/reports/sonar-cnes-report.jar -p "$SONAR_PROJECT_KEY" -h "$SONAR_HOST_URL" -t "$SONAR_TOKEN"
