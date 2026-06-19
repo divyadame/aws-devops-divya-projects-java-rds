@@ -109,8 +109,9 @@ jobs:
           SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }} 
         run: |
           mkdir reports
+          cd reports
           curl -sL ${{ env.SONAR_CNES_URL }} -o sonar-cnes-report.jar
-          java -jar sonar-cnes-report.jar -o reports -p "$SONAR_PROJECT_KEY" -h "$SONAR_HOST_URL" -t "$SONAR_TOKEN"
+          java -jar reports/sonar-cnes-report.jar -o reports -p "$SONAR_PROJECT_KEY" -h "$SONAR_HOST_URL" -t "$SONAR_TOKEN"
 
   # 🟢 SPEED & SECURITY OPTIMIZATION: Compiles image utilizing local disk dependencies
   build-and-publish:    
