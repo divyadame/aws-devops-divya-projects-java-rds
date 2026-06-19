@@ -28,14 +28,12 @@ env:
   ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
   EKS_CLUSTER_NAME: "my-eks-cluster"                # Replace with your EKS Cluster Name
   
-
-
 jobs: 
   # ==========================================
   # STEP 1: COMPILE, TEST, AND QUALITY CHECKS
   # ==========================================
   build-and-test:
-    runs-on: self-hosted
+    runs-on: ubuntu
     timeout-minutes: 15
     services: 
       redis:
@@ -86,7 +84,6 @@ jobs:
           SONAR_ProjectKey: ${{ env.SONAR_PROJECT_KEY }}
 
       - name: Generate sonar CNES report
-        if: steps.sonarqube-quality-gate.outputs.quality-gate-status == 'ERROR'
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: http://127.0.0.1:9000  
@@ -101,6 +98,11 @@ jobs:
         with:
           name: petclinic.jar
           path: target/*.jar
+      - name: Upload SONAR CNES REPORT
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${CI_JOB_NAME}-${CI_COMMIT_REF_NAME}
+          path: reports/*
 
   # ==========================================
   # STEP 2: BUILD AND PUBLISH TO AMAZON ECR
