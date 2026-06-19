@@ -15,8 +15,8 @@ env:
   SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
   SONAR_PROJECT_KEY: "petclinic_local" 
   cache_dir: "/home/divya/devops_handson/spring-petclinic"
-  SONAR_CNES_URL: "https://github.com/cnescatlab/sonar-cnes-report/releases/download/4.1.1/sonar-cnes-report-4.1.1.jar"
-
+  SONAR_CNES_URL: "https://github.com/cnescatlab/sonar-cnes-report/releases/tag/5.0.4"
+  
 jobs:
   # 🟢 SPEED OPTIMIZATION: Runs Unit Tests using multi-threaded core compilation
   unit-tests:
